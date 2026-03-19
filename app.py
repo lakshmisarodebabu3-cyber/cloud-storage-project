@@ -1,12 +1,16 @@
 import streamlit as st
 import os
 from datetime import datetime
-import matplotlib.pyplot as plt
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 st.set_page_config(page_title="Cloud Storage Pro", layout="wide")
+
+# ---------- CACHE (FASTER) ----------
+@st.cache_data
+def get_files():
+    return os.listdir(UPLOAD_FOLDER)
 
 # ---------- SESSION LOGIN ----------
 if "login" not in st.session_state:
@@ -37,10 +41,10 @@ if st.sidebar.button("🚪 Logout"):
 # ---------- UI ----------
 st.markdown("""
 <style>
-.stApp { background:#eef2f7; }
+.stApp { background:#f4f7fb; }
 .header { font-size:34px; font-weight:700; text-align:center; margin-bottom:20px; color:#1e3a8a;}
 .card { background:white; padding:15px; border-radius:12px; margin-bottom:10px;
-box-shadow:0 3px 8px rgba(0,0,0,0.1);}
+box-shadow:0 3px 8px rgba(0,0,0,0.08);}
 .metric { background:white; padding:20px; border-radius:12px; text-align:center;
 border-left:6px solid #2563eb;}
 </style>
@@ -50,13 +54,12 @@ st.markdown("<div class='header'>☁️ Cloud Storage Pro Dashboard</div>", unsa
 
 # ---------- SIDEBAR ----------
 st.sidebar.title("⚙️ Controls")
-
 search = st.sidebar.text_input("Search")
 filter_type = st.sidebar.selectbox("Filter", ["All","Images","Documents"])
 sort_by = st.sidebar.selectbox("Sort", ["Name","Size","Date"])
 
 # ---------- DATA ----------
-files = os.listdir(UPLOAD_FOLDER)
+files = get_files()
 
 total_files = len(files)
 total_size = sum(os.path.getsize(os.path.join(UPLOAD_FOLDER,f)) for f in files)/1024 if files else 0
@@ -75,14 +78,8 @@ with tab1:
     col2.markdown(f"<div class='metric'>Storage KB<br><h2>{round(total_size,2)}</h2></div>", unsafe_allow_html=True)
     col3.markdown(f"<div class='metric'>Images<br><h2>{img_count}</h2></div>", unsafe_allow_html=True)
 
-    st.subheader("📊 File Distribution")
-
-    if img_count == 0 and doc_count == 0:
-        st.info("No files available to display chart")
-    else:
-        fig, ax = plt.subplots()
-        ax.pie([img_count, doc_count], labels=["Images","Docs"], autopct="%1.1f%%")
-        st.pyplot(fig)
+    st.subheader("📊 File Summary")
+    st.info(f"Images: {img_count} | Documents: {doc_count}")
 
     st.subheader("🕒 Recent Files")
     recent = sorted(files, key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER,x)), reverse=True)[:5]
@@ -100,7 +97,6 @@ with tab2:
         with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         st.success("Uploaded successfully")
-        st.rerun()
 
     # FILTER
     filtered = []
@@ -136,16 +132,17 @@ with tab2:
         col2.write(f"{size} KB")
         col3.write(date)
 
-        # preview
+        # 👁 PREVIEW (FAST FIX)
         if file.lower().endswith(("png","jpg","jpeg")):
             if col4.button("👁", key="p_"+file):
-                st.image(path, width=200)
+                with open(path, "rb") as img:
+                    st.image(img.read(), width=200)
 
-        # download
+        # ⬇ DOWNLOAD
         with open(path,"rb") as f:
             col5.download_button("⬇", f, file)
 
-        # rename
+        # ✏️ RENAME
         new_name = col6.text_input("", key="r_"+file, placeholder="Rename")
         if col6.button("✔", key="a_"+file):
             if new_name:
@@ -153,7 +150,7 @@ with tab2:
                 st.success("Renamed")
                 st.rerun()
 
-        # delete
+        # ❌ DELETE
         if st.button("❌ Delete", key="d_"+file):
             os.remove(path)
             st.warning("Deleted")
