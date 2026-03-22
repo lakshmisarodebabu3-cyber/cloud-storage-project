@@ -7,11 +7,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 st.set_page_config(page_title="Cloud Storage Pro", layout="wide")
 
-# ---------- CACHE (FASTER) ----------
-@st.cache_data
-def get_files():
-    return os.listdir(UPLOAD_FOLDER)
-
 # ---------- SESSION LOGIN ----------
 if "login" not in st.session_state:
     st.session_state.login = False
@@ -58,9 +53,10 @@ search = st.sidebar.text_input("Search")
 filter_type = st.sidebar.selectbox("Filter", ["All","Images","Documents"])
 sort_by = st.sidebar.selectbox("Sort", ["Name","Size","Date"])
 
-# ---------- DATA ----------
-files = get_files()
+# ---------- ALWAYS GET LATEST FILES ----------
+files = os.listdir(UPLOAD_FOLDER)
 
+# ---------- STATS ----------
 total_files = len(files)
 total_size = sum(os.path.getsize(os.path.join(UPLOAD_FOLDER,f)) for f in files)/1024 if files else 0
 img_count = len([f for f in files if f.lower().endswith(("png","jpg","jpeg"))])
@@ -96,7 +92,12 @@ with tab2:
         path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
         with open(path, "wb") as f:
             f.write(uploaded_file.getbuffer())
+
         st.success("Uploaded successfully")
+        st.rerun()   # 🔥 FIX: refresh UI instantly
+
+    # 🔁 REFRESH FILE LIST AGAIN
+    files = os.listdir(UPLOAD_FOLDER)
 
     # FILTER
     filtered = []
@@ -132,7 +133,7 @@ with tab2:
         col2.write(f"{size} KB")
         col3.write(date)
 
-        # 👁 PREVIEW (FAST FIX)
+        # 👁 PREVIEW
         if file.lower().endswith(("png","jpg","jpeg")):
             if col4.button("👁", key="p_"+file):
                 with open(path, "rb") as img:
