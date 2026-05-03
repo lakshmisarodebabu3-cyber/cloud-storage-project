@@ -85,6 +85,11 @@ Password: 1234
 - Advanced security
 
 ---
+## 🌐 Live Demo
+
+🚀 Click here to use the app:  
+https://https://cloud-storage-project-wluqwctgvh87yvmzv4ntuz.streamlit.app
+⚠️ Note: Uploaded files are temporary and may reset due to cloud limitations.
 
 📌 Author
 
