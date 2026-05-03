@@ -7,7 +7,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 st.set_page_config(page_title="Cloud Storage Pro", layout="wide")
 
-# ---------- SESSION LOGIN ----------
+# ---------- LOGIN ----------
 if "login" not in st.session_state:
     st.session_state.login = False
 
@@ -19,7 +19,6 @@ def login():
     if st.button("Login"):
         if user == "admin" and pwd == "1234":
             st.session_state.login = True
-            st.success("Login success")
             st.rerun()
         else:
             st.error("Invalid credentials")
@@ -37,11 +36,11 @@ if st.sidebar.button("🚪 Logout"):
 st.markdown("""
 <style>
 .stApp { background:#f4f7fb; }
-.header { font-size:34px; font-weight:700; text-align:center; margin-bottom:20px; color:#1e3a8a;}
-.card { background:white; padding:15px; border-radius:12px; margin-bottom:10px;
-box-shadow:0 3px 8px rgba(0,0,0,0.08);}
-.metric { background:white; padding:20px; border-radius:12px; text-align:center;
-border-left:6px solid #2563eb;}
+.header { font-size:32px; font-weight:700; text-align:center; color:#1e3a8a;}
+.card { background:white; padding:12px; border-radius:10px; margin-bottom:8px;
+box-shadow:0 2px 6px rgba(0,0,0,0.08);}
+.metric { background:white; padding:15px; border-radius:10px; text-align:center;
+border-left:5px solid #2563eb;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,53 +52,43 @@ search = st.sidebar.text_input("Search")
 filter_type = st.sidebar.selectbox("Filter", ["All","Images","Documents"])
 sort_by = st.sidebar.selectbox("Sort", ["Name","Size","Date"])
 
-# ---------- ALWAYS GET LATEST FILES ----------
+# ---------- FILE LIST ----------
 files = os.listdir(UPLOAD_FOLDER)
 
-# ---------- STATS ----------
-total_files = len(files)
-total_size = sum(os.path.getsize(os.path.join(UPLOAD_FOLDER,f)) for f in files)/1024 if files else 0
-img_count = len([f for f in files if f.lower().endswith(("png","jpg","jpeg"))])
-doc_count = len([f for f in files if f.lower().endswith(("pdf","txt"))])
-
-# ---------- TABS ----------
+# ---------- DASHBOARD ----------
 tab1, tab2 = st.tabs(["📊 Dashboard", "📁 File Manager"])
 
-# ================= DASHBOARD =================
 with tab1:
-    st.subheader("Overview")
+    total_files = len(files)
+    total_size = sum(os.path.getsize(os.path.join(UPLOAD_FOLDER,f)) for f in files)/1024 if files else 0
+    img_count = len([f for f in files if f.lower().endswith(("png","jpg","jpeg"))])
+    doc_count = len([f for f in files if f.lower().endswith(("pdf","txt"))])
 
     col1,col2,col3 = st.columns(3)
-    col1.markdown(f"<div class='metric'>Files<br><h2>{total_files}</h2></div>", unsafe_allow_html=True)
-    col2.markdown(f"<div class='metric'>Storage KB<br><h2>{round(total_size,2)}</h2></div>", unsafe_allow_html=True)
-    col3.markdown(f"<div class='metric'>Images<br><h2>{img_count}</h2></div>", unsafe_allow_html=True)
+    col1.metric("Files", total_files)
+    col2.metric("Storage (KB)", round(total_size,2))
+    col3.metric("Images", img_count)
 
-    st.subheader("📊 File Summary")
     st.info(f"Images: {img_count} | Documents: {doc_count}")
 
-    st.subheader("🕒 Recent Files")
-    recent = sorted(files, key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER,x)), reverse=True)[:5]
-    for f in recent:
-        st.write("•", f)
-
-# ================= FILE MANAGER =================
+# ---------- FILE MANAGER ----------
 with tab2:
-    st.subheader("Upload File")
 
-    uploaded_file = st.file_uploader("Choose file")
+    # 🔹 Upload
+    uploaded_file = st.file_uploader("Upload File")
 
     if uploaded_file:
-        path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
-        with open(path, "wb") as f:
+        file_path = os.path.join(UPLOAD_FOLDER, uploaded_file.name)
+
+        with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        st.success("Uploaded successfully")
-        st.rerun()   # 🔥 FIX: refresh UI instantly
+        st.success("File uploaded successfully")
 
-    # 🔁 REFRESH FILE LIST AGAIN
+    # 🔹 Refresh files after upload
     files = os.listdir(UPLOAD_FOLDER)
 
-    # FILTER
+    # 🔹 Filter
     filtered = []
     for f in files:
         if search.lower() in f.lower():
@@ -110,7 +99,7 @@ with tab2:
             elif filter_type == "All":
                 filtered.append(f)
 
-    # SORT
+    # 🔹 Sort
     if sort_by == "Name":
         filtered.sort()
     elif sort_by == "Size":
@@ -120,41 +109,40 @@ with tab2:
 
     st.subheader("Files")
 
+    # 🔹 File Cards
     for file in filtered:
-        path = os.path.join(UPLOAD_FOLDER,file)
+        path = os.path.join(UPLOAD_FOLDER, file)
         size = round(os.path.getsize(path)/1024,2)
         date = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%d-%m-%Y")
 
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        with st.container():
+            col1, col2, col3, col4, col5 = st.columns([3,1,1,1,1])
 
-        col1,col2,col3,col4,col5,col6 = st.columns([3,1,1,1,1,1])
+            col1.write(f"📄 {file}")
+            col2.write(f"{size} KB")
+            col3.write(date)
 
-        col1.write(f"📄 {file}")
-        col2.write(f"{size} KB")
-        col3.write(date)
+            # Preview
+            if file.lower().endswith(("png","jpg","jpeg")):
+                if col4.button("👁", key=f"preview_{file}"):
+                    st.image(path, width=200)
 
-        # 👁 PREVIEW
-        if file.lower().endswith(("png","jpg","jpeg")):
-            if col4.button("👁", key="p_"+file):
-                with open(path, "rb") as img:
-                    st.image(img.read(), width=200)
+            # Download
+            with open(path, "rb") as f:
+                col5.download_button("⬇", f, file, key=f"download_{file}")
 
-        # ⬇ DOWNLOAD
-        with open(path,"rb") as f:
-            col5.download_button("⬇", f, file)
+            # Rename (separate row)
+            new_name = st.text_input(f"Rename {file}", key=f"rename_{file}")
+            if st.button("Apply", key=f"apply_{file}"):
+                if new_name:
+                    os.rename(path, os.path.join(UPLOAD_FOLDER, new_name))
+                    st.success("Renamed")
+                    st.rerun()
 
-        # ✏️ RENAME
-        new_name = col6.text_input("", key="r_"+file, placeholder="Rename")
-        if col6.button("✔", key="a_"+file):
-            if new_name:
-                os.rename(path, os.path.join(UPLOAD_FOLDER,new_name))
-                st.success("Renamed")
+            # Delete
+            if st.button("❌ Delete", key=f"delete_{file}"):
+                os.remove(path)
+                st.warning("Deleted")
                 st.rerun()
 
-        # ❌ DELETE
-        if st.button("❌ Delete", key="d_"+file):
-            os.remove(path)
-            st.warning("Deleted")
-            st.rerun()
-
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.divider()
